@@ -1,0 +1,215 @@
+"""Paule_Lab4 - Python Multiprocessing and Parallel Programming
+
+AUTHOR: Faith Paule
+COURSE: S-CSPE003LA
+DUE DATE: Sep 11, 1:00 pm
+
+TOPIC: Parallel Programming - Python Multiprocessing, Process Management, CPU-bound Task Distribution
+Programming Language: Python 3
+OBJECTIVE:
+- Learn to create and manage multiple processes in Python
+- Compare single-process vs multi-process performance
+- Distribute CPU-bound tasks across available CPU cores
+
+Tech Stack:
+- multiprocessing (Process, Pool, cpu_count) - Creating and managing parallel processes
+- os - Accessing process IDs and parent process information
+- time - Performance measurement and benchmarking
+"""
+
+# ============================================================================
+# SECTION 1: BASIC PROCESS CREATION
+# ============================================================================
+from multiprocessing import Process
+
+def f(name):
+    """Simple function that prints a greeting."""
+    print('hello', name)
+
+if __name__ == '__main__':
+    # Create and run a single process
+    p = Process(target=f, args=('bob',))   # Create process to run f('bob')
+    p.start()                               # Start the process (asynchronous)
+    p.join()                                # Wait for process to finish
+
+# ============================================================================
+# SECTION 2: PROCESS WITH NO ARGUMENTS
+# ============================================================================
+def foo():
+    """Simple function that prints 'hello'."""
+    print('hello')
+
+if __name__ == '__main__':
+    p = Process(target=foo)    # Create process (no arguments needed)
+    p.start()
+    p.join()
+
+# ============================================================================
+# SECTION 3: MULTIPLE PROCESSES (3 concurrent processes)
+# ============================================================================
+if __name__ == '__main__':
+    p1 = Process(target=foo)
+    p2 = Process(target=foo)
+    p3 = Process(target=foo)
+
+    p1.start()
+    p2.start()
+    p3.start()
+
+    p1.join()
+    p2.join()
+    p3.join()
+
+# ============================================================================
+# SECTION 4: PROCESS INFORMATION (IDs)
+# ============================================================================
+import os
+
+def info(title):
+    """Display process information including IDs."""
+    print(title)
+    print('module name:', __name__)
+    print('parent process:', os.getppid())   # Parent Process ID
+    print('process id:', os.getpid())        # Current Process ID
+
+def f(name):
+    info('function f')
+    print('hello', name)
+
+if __name__ == '__main__':
+    info('main line')
+    p = Process(target=f, args=('bob',))
+    p.start()
+    p.join()
+
+# ============================================================================
+# SECTION 5: PROCESS POOL (MAP function)
+# ============================================================================
+from multiprocessing import Pool
+
+def f(x):
+    """Square a number."""
+    return x * x
+
+if __name__ == '__main__':
+    # Create a pool of 5 worker processes
+    with Pool(5) as p:
+        # Apply f(x) to each item in the list [1,2,3] using the pool
+        # Each item is processed by a separate worker
+        print(p.map(f, [1, 2, 3]))   # Output: [1, 4, 9]
+
+# ============================================================================
+# SECTION 6: PERFORMANCE TEST A - SINGLE PROCESS
+# ============================================================================
+import time
+
+def counter(num):
+    """Count from 0 to num-1 (CPU-bound task)."""
+    count = 0
+    while count < num:
+        count += 1
+
+def test_single_process():
+    """Measure time for a single process counting to 100 million."""
+    start = time.perf_counter()
+
+    a = Process(target=counter, args=(100_000_000,))
+    a.start()
+    a.join()
+
+    end = time.perf_counter()
+    print("Single process finished in:", round(end - start, 2), "seconds")
+
+# ============================================================================
+# SECTION 7: PERFORMANCE TEST B - TWO PROCESSES
+# ============================================================================
+def test_two_processes():
+    """Measure time for two processes, each counting to 50 million."""
+    start = time.perf_counter()
+
+    a = Process(target=counter, args=(50_000_000,))
+    b = Process(target=counter, args=(50_000_000,))
+
+    a.start()
+    b.start()
+
+    a.join()
+    b.join()
+
+    end = time.perf_counter()
+    print("Two processes finished in:", round(end - start, 2), "seconds")
+
+# ============================================================================
+# SECTION 8: PERFORMANCE TEST C - FOUR PROCESSES
+# ============================================================================
+def test_four_processes():
+    """Measure time for four processes, each counting to 25 million."""
+    start = time.perf_counter()
+
+    # Create 4 processes, each counting to 25 million
+    processes = [Process(target=counter, args=(25_000_000,)) for _ in range(4)]
+
+    # Start all processes
+    for p in processes:
+        p.start()
+
+    # Wait for all processes to finish
+    for p in processes:
+        p.join()
+
+    end = time.perf_counter()
+    print("Four processes finished in:", round(end - start, 2), "seconds")
+
+# ============================================================================
+# SECTION 9: DYNAMIC WORK DISTRIBUTION (AUTO-DETECT CPU CORES)
+# ============================================================================
+from multiprocessing import cpu_count
+
+def test_auto_distribution():
+    """Automatically distribute work across all available CPU cores."""
+    total_work = 100_000_000
+    cores = cpu_count()                    # Detect available CPU cores
+    work_per_core = total_work // cores    # Split work evenly
+
+    print(f"\nDetected {cores} CPU core(s).")
+    print(f"Splitting {total_work:,} counting tasks: each process counts to {work_per_core:,}.")
+
+    start = time.perf_counter()
+
+    # Create one process per CPU core
+    processes = [Process(target=counter, args=(work_per_core,)) for _ in range(cores)]
+
+    # Start all processes
+    for p in processes:
+        p.start()
+
+    # Wait for all to finish
+    for p in processes:
+        p.join()
+
+    end = time.perf_counter()
+    print(f"Parallel processing finished in: {round(end - start, 2)} seconds")
+
+# ============================================================================
+# MAIN EXECUTION - RUN ALL TESTS
+# ============================================================================
+if __name__ == '__main__':
+    print("=" * 60)
+    print("PYTHON MULTIPROCESSING PERFORMANCE COMPARISON")
+    print("=" * 60)
+
+    print("\n--- Test A: Single Process (100 million counts) ---")
+    test_single_process()
+
+    print("\n--- Test B: Two Processes (50 million each) ---")
+    test_two_processes()
+
+    print("\n--- Test C: Four Processes (25 million each) ---")
+    test_four_processes()
+
+    print("\n--- Auto-Distribution: One Process per CPU Core ---")
+    test_auto_distribution()
+
+    # Display CPU information
+    print(f"\n--- System Information ---")
+    print(f"Available CPU cores: {cpu_count()}")
